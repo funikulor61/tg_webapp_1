@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio to URL Converter</title>
+    <script src="https://telegram.org"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color, #f4f4f7);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 16px;
+            margin: 0;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .hint {
+            color: var(--tg-theme-hint-color, #8e8e93);
+            font-size: 14px;
+        }
+        .track-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .track-card {
+            background-color: var(--tg-theme-secondary-bg-color, #ffffff);
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .track-title {
+            font-weight: 600;
+            font-size: 16px;
+            word-break: break-word;
+        }
+        .copy-btn {
+            background-color: var(--tg-theme-button-color, #007aff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            padding: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+        .copy-btn:active {
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>Моя конвертированная музыка</h2>
+        <p class="hint">Отправьте аудиофайл боту, чтобы он появился здесь</p>
+    </div>
+
+    <div class="track-list" id="tracks">
+        <!-- Сюда динамически добавятся треки -->
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        // Извлекаем данные, которые бот передал внутри URL (в параметре tgWebAppStartParam)
+        const startParam = tg.initDataUnsafe.start_param;
+        const tracksContainer = document.getElementById('tracks');
+
+        if (startParam) {
+            try {
+                // Декодируем base64 строку с треками обратно в массив объектов
+                const decodedData = atob(startParam);
+                const tracks = JSON.parse(decodeURIComponent(decodedData));
+
+                if (tracks.length === 0) {
+                    tracksContainer.innerHTML = '<p class="hint" style="text-align:center;">Список пуст. Отправьте музыкальный файл (.mp3) в чат.</p>';
+                } else {
+                    tracks.forEach(track => {
+                        const card = document.createElement('div');
+                        card.className = 'track-card';
+                        card.innerHTML = `
+                            <div class="track-title">🎵 ${track.title}</div>
+                            <button class="copy-btn" onclick="copyToClipboard('${track.url}')">Копировать прямую ссылку</button>
+                        `;
+                        tracksContainer.appendChild(card);
+                    });
+                }
+            } catch (e) {
+                tracksContainer.innerHTML = '<p class="hint">Ошибка при чтении списка треков.</p>';
+            }
+        } else {
+            tracksContainer.innerHTML = '<p class="hint" style="text-align:center;">Список пуст. Отправьте музыкальный файл (.mp3) в чат.</p>';
+        }
+
+        // Функция копирования в буфер обмена методами Telegram SDK
+        function copyToClipboard(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                tg.showAlert("Ссылка успешно скопирована в буфер обмена! Нажмите 'Вставить' в любом месте.");
+            }).catch(() => {
+                tg.showAlert("Не удалось скопировать. Ссылка: " + url);
+            });
+        }
+    </script>
+</body>
+</html>
