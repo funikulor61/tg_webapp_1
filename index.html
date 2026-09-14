@@ -3,13 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Converter Fixed</title>
+    <title>Converter Native</title>
     <script src="https://telegram.org"></script>
     <style>
         body { font-family: sans-serif; background: #f4f4f7; padding: 20px; text-align: center; }
-        /* Простая кнопка вместо сложной зоны, чтобы клик работал железно */
-        .upload-btn { background: #007aff; color: #fff; border: none; padding: 15px 30px; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 50px; }
-        .copy-btn { display: none; background: #34c759; color: #fff; border: none; padding: 12px 25px; border-radius: 10px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+        
+        .btn-wrap {
+            position: relative;
+            display: inline-block;
+            margin-top: 50px;
+        }
+        .upload-btn {
+            background: #007aff; color: #fff; border: none;
+            padding: 15px 30px; border-radius: 12px;
+            font-weight: bold; font-size: 16px; cursor: pointer;
+        }
+        /* Натягиваем реальный инпут поверх кнопки на 100% размера с нулевой прозрачностью */
+        #file-input {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .copy-btn {
+            display: none; background: #34c759; color: #fff;
+            border: none; padding: 12px 25px; border-radius: 10px;
+            font-weight: bold; margin-top: 20px; cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -17,9 +38,11 @@
     <h2>Конвертер музыки в URL</h2>
     <p>Нажмите на кнопку ниже, чтобы выбрать аудиофайл</p>
 
-    <!-- Обычная нативная кнопка, которая без багов вызывает системный проводник -->
-    <button class="upload-btn" onclick="document.getElementById('file-input').click()">🎵 Выбрать аудиофайл</button>
-    <input type="file" id="file-input" accept="audio/*" style="display:none">
+    <div class="btn-wrap">
+        <button class="upload-btn">🎵 Выбрать аудиофайл</button>
+        <!-- Инпут лежит прямо поверх кнопки и принимает нативный тап -->
+        <input type="file" id="file-input" accept="audio/*">
+    </div>
 
     <p id="status-text"></p>
     <button class="copy-btn" id="copy-button">📋 Скопировать прямую ссылку</button>
@@ -33,18 +56,15 @@
         const text = document.getElementById('status-text');
         const copyBtn = document.getElementById('copy-button');
 
-        // Ловим выбор файла (срабатывает сразу, как выбрал трек в проводнике)
         input.onchange = async () => {
             if (!input.files.length) return;
-            
-            // ХАК: Берем именно САМ ФАЙЛ, а не список файлов
-            const file = input.files[0]; 
+            const file = input.files;
 
             text.innerText = "⏳ Загрузка файла...";
             copyBtn.style.display = "none";
 
             const formData = new FormData();
-            formData.append('file', file); // Передаем чистый файл
+            formData.append('file', file);
 
             try {
                 const response = await fetch('https://file.io', {
