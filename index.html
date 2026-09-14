@@ -51,7 +51,7 @@
     <div id="drop-zone">
         <span style="font-size: 40px;">🎵</span>
         <p id="drop-text">Нажмите для выбора или перетащите аудио сюда</p>
-        <input type="file" id="file-input" accept=".mp3,.wav,.ogg,.m4a,audio/*">
+        <input type="file" id="file-input" accept="audio/*">
     </div>
 
     <div class="track-list" id="tracks"></div>
@@ -61,100 +61,84 @@
         tg.ready();
         tg.expand();
 
-        // Токен вашего бота
-        const BOT_TOKEN = "8508621666:AAGgomjuYv0iqo1Pweses_m9bkzqH5AVE_I"; 
-
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const dropText = document.getElementById('drop-text');
         const tracksContainer = document.getElementById('tracks');
 
-        // Открытие проводника
-        dropZone.addEventListener('click', () => {
+        // Открытие проводника с блокировкой перехода страницы
+        dropZone.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             fileInput.value = null; 
             fileInput.click();
         });
 
-        // Drag and Drop
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('hover'); }, false);
+        // Полное глушение дефолтных событий браузера при drag-and-drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
         });
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('hover'); }, false);
-        });
+
+        dropZone.addEventListener('dragover', () => dropZone.classList.add('hover'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('hover'));
 
         dropZone.addEventListener('drop', (e) => {
+            dropZone.classList.remove('hover');
             const dt = e.dataTransfer;
             if (dt.files && dt.files.length > 0) {
-                handleFile(dt.files[0]); // ХАК: Берем именно первый файл из списка
+                handleFile(dt.files[0]); // Передаем чистый первый файл
             }
         });
 
-        // Выбор через проводник
+        // Отлавливаем выбор через проводник
         fileInput.addEventListener('change', (e) => {
+            e.preventDefault();
             if (fileInput.files && fileInput.files.length > 0) {
-                handleFile(fileInput.files[0]); // ХАК: Берем именно первый файл из списка
+                handleFile(fileInput.files[0]); // Передаем чистый первый файл
             }
         });
 
-        async function handleFile(singleFile) {
-            if (!singleFile) return;
+        async function handleFile(fileObject) {
+            if (!fileObject) return;
 
-            // Визуальный старт
-            dropText.innerText = "⏳ Отправка файла в Telegram...";
+            // Мгновенная смена текста на экране
+            dropText.innerText = "⏳ Генерация URL ссылки...";
             dropZone.style.pointerEvents = "none";
 
-            // Безопасно получаем id пользователя, если запуск идет не из TG
-            const userId = (tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : null;
-            if (!userId) {
-                tg.showAlert("Ошибка: Откройте приложение внутри Telegram чата с ботом.");
-                resetDropZone();
-                return;
-            }
-
             const formData = new FormData();
-            formData.append('chat_id', userId);
-            formData.append('audio', singleFile); // Теперь отправляется чистый файл
+            formData.append('file', fileObject);
 
             try {
-                // 1. Отправка файла
-                const response = await fetch(`https://telegram.org{BOT_TOKEN}/sendAudio`, {
+                // Загружаем файл напрямую на бесплатный анонимный API хостинг file.io
+                const response = await fetch('https://file.io', {
                     method: 'POST',
                     body: formData
                 });
 
                 const result = await response.json();
-                if (!result.ok) throw new Error(result.description || "Ошибка загрузки файла");
-
-                const fileId = result.result.audio.file_id;
-
-                // 2. Запрос пути файла
-                const fileInfoResponse = await fetch(`https://telegram.org{BOT_TOKEN}/getFile?file_id=${fileId}`);
-                const fileInfoResult = await fileInfoResponse.json();
                 
-                if (!fileInfoResult.ok) throw new Error("Не удалось сгенерировать путь скачивания");
-
-                const filePath = fileInfoResult.result.file_path;
-                const finalUrl = `https://telegram.org{BOT_TOKEN}/${filePath}`;
-
-                // Выводим карточку
-                addTrackCard(singleFile.name, finalUrl);
-                
-                dropText.innerText = "✅ Ссылка успешно создана!";
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
+                if (result.success && result.link) {
+                    // Если ссылка успешно создана сервером, выводим её в список
+                    addTrackCard(fileObject.name, result.link);
+                    dropText.innerText = "✅ Ссылка создана!";
+                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
+                } else {
+                    throw new Error("Не удалось прочитать ответ сервера");
+                }
 
             } catch (error) {
                 console.error(error);
-                tg.showAlert("Ошибка: " + error.message);
+                tg.showAlert("Ошибка при генерации ссылки. Попробуйте еще раз.");
                 dropText.innerText = "Ошибка загрузки";
             } finally {
-                setTimeout(resetDropZone, 3000);
+                setTimeout(() => {
+                    dropText.innerText = "Нажмите для выбора или перетащите аудио сюда";
+                    dropZone.style.pointerEvents = "auto";
+                }, 3000);
             }
-        }
-
-        function resetDropZone() {
-            dropText.innerText = "Нажмите для выбора или перетащите аудио сюда";
-            dropZone.style.pointerEvents = "auto";
         }
 
         function addTrackCard(name, url) {
@@ -169,9 +153,9 @@
 
         function copyToClipboard(url) {
             navigator.clipboard.writeText(url).then(() => {
-                tg.showAlert("Прямая веб-ссылка успешно скопирована!");
+                tg.showAlert("Прямая веб-ссылка скопирована в буфер обмена!");
             }).catch(() => {
-                tg.showAlert("Не удалось скопировать автоматически. Ссылка: " + url);
+                tg.showAlert("Ссылка создана: " + url);
             });
         }
     </script>
