@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Music Web App Converter</title>
-    <script src="https://telegram.org"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -12,7 +12,7 @@
             color: var(--tg-theme-text-color, #000000);
             padding: 16px; margin: 0;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            height: 85vh; box-sizing: border-box;
+            height: 80vh;
         }
         h2 { text-align: center; margin-bottom: 5px; }
         .hint { color: var(--tg-theme-hint-color, #8e8e93); font-size: 14px; text-align: center; margin-bottom: 20px; }
@@ -33,7 +33,7 @@
 <body>
 
     <h2>Конвертер музыки в URL</h2>
-    <p class="hint">Выберите файл на устройстве или перетащите его в зону ниже</p>
+    <p class="hint">Выберите файл на устройстве или перетащите его в область ниже</p>
 
     <div id="drop-zone">
         <span style="font-size: 40px;">🎵</span>
@@ -50,7 +50,7 @@
         const fileInput = document.getElementById('file-input');
         const dropText = document.getElementById('drop-text');
 
-        // Клик по зоне безопасно открывает проводник
+        // Открытие проводника по клику
         dropZone.addEventListener('click', (e) => {
             if (e.target !== fileInput) {
                 fileInput.value = null; 
@@ -58,7 +58,7 @@
             }
         });
 
-        // Глушим стандартное поведение браузера для Drag & Drop
+        // Глушим стандартные переходы браузера для Drag and Drop
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             document.body.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
             dropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
@@ -67,29 +67,29 @@
         dropZone.addEventListener('dragover', () => dropZone.classList.add('hover'));
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('hover'));
 
-        // Обработка сброса файла (перетаскивание)
+        // Обработка перетаскивания файла
         dropZone.addEventListener('drop', (e) => {
             dropZone.classList.remove('hover');
             const dt = e.dataTransfer;
             if (dt.files && dt.files.length > 0) {
-                // ИСПРАВЛЕНО: Извлекаем имя через индекс [0]
+                // ИСПРАВЛЕНО: берем первый файл из массива по индексу [0]
                 sendFileNameToBot(dt.files[0].name); 
             }
         });
 
-        // Обработка выбора файла через проводник
+        // Обработка выбора через проводник
         fileInput.addEventListener('change', () => {
             if (fileInput.files && fileInput.files.length > 0) {
-                // ИСПРАВЛЕНО: Извлекаем имя через индекс [0]
+                // ИСПРАВЛЕНО: берем первый файл из массива по индексу [0]
                 sendFileNameToBot(fileInput.files[0].name); 
             }
         });
 
-        // Функция отправки строки в Telegram чат
+        // Отправка данных боту
         function sendFileNameToBot(fileName) {
             if (fileName && fileName.trim() !== "") {
                 dropText.innerText = "⏳ Отправка: " + fileName;
-                // Встроенный метод Telegram Web App для отправки данных обратно боту
+                // Отправляем имя текстом и Telegram автоматически закрывает Mini App
                 tg.sendData(fileName); 
             }
         }
