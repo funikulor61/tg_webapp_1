@@ -3,29 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio to URL Converter</title>
+    <title>Music Web App Converter</title>
     <script src="https://telegram.org"></script>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: var(--tg-theme-bg-color, #f4f4f7);
             color: var(--tg-theme-text-color, #000000);
             padding: 16px;
             margin: 0;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .hint {
-            color: var(--tg-theme-hint-color, #8e8e93);
-            font-size: 14px;
-        }
-        .track-list {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            align-items: center;
         }
+        h2 { text-align: center; margin-bottom: 5px; }
+        .hint { color: var(--tg-theme-hint-color, #8e8e93); font-size: 14px; text-align: center; margin-bottom: 20px; }
+        
+        /* Зона для перетаскивания и выбора файла */
+        #drop-zone {
+            width: 90%;
+            max-width: 400px;
+            height: 180px;
+            border: 2px dashed var(--tg-theme-button-color, #007aff);
+            border-radius: 16px;
+            background-color: var(--tg-theme-secondary-bg-color, #ffffff);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        #drop-zone.hover {
+            background-color: rgba(0, 122, 255, 0.1);
+        }
+        #drop-zone p {
+            font-size: 15px;
+            font-weight: 600;
+            margin: 8px 0 0 0;
+            text-align: center;
+        }
+        #file-input { display: none; }
+
+        /* Список сконвертированных треков */
+        .track-list { width: 100%; max-width: 400px; margin-top: 25px; display: flex; flex-direction: column; gap: 12px; }
         .track-card {
             background-color: var(--tg-theme-secondary-bg-color, #ffffff);
             border-radius: 12px;
@@ -33,81 +56,125 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
         }
-        .track-title {
-            font-weight: 600;
-            font-size: 16px;
-            word-break: break-word;
-        }
+        .track-title { font-weight: 600; font-size: 15px; word-break: break-all; }
         .copy-btn {
             background-color: var(--tg-theme-button-color, #007aff);
             color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            border-radius: 8px;
-            padding: 10px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 14px;
-            transition: opacity 0.2s;
-        }
-        .copy-btn:active {
-            opacity: 0.7;
+            border: none; border-radius: 8px; padding: 10px;
+            font-weight: bold; cursor: pointer; font-size: 14px;
         }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h2>Моя конвертированная музыка</h2>
-        <p class="hint">Отправьте аудиофайл боту, чтобы он появился здесь</p>
+    <h2>Конвертер музыки в URL</h2>
+    <p class="hint">Выберите файл на устройстве или просто перетащите его в область ниже</p>
+
+    <!-- Область загрузки -->
+    <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <span style="font-size: 40px;">🎵</span>
+        <p id="drop-text">Нажмите для выбора или перетащите аудио сюда</p>
+        <input type="file" id="file-input" accept="audio/*">
     </div>
 
-    <div class="track-list" id="tracks">
-        <!-- Сюда динамически добавятся треки -->
-    </div>
+    <!-- Список результатов -->
+    <div class="track-list" id="tracks"></div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
 
-        // Извлекаем данные, которые бот передал внутри URL (в параметре tgWebAppStartParam)
-        const startParam = tg.initDataUnsafe.start_param;
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const dropText = document.getElementById('drop-text');
         const tracksContainer = document.getElementById('tracks');
 
-        if (startParam) {
-            try {
-                // Декодируем base64 строку с треками обратно в массив объектов
-                const decodedData = atob(startParam);
-                const tracks = JSON.parse(decodeURIComponent(decodedData));
+        // Подсветка при перетаскивании dragover
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('hover');
+            }, false);
+        });
 
-                if (tracks.length === 0) {
-                    tracksContainer.innerHTML = '<p class="hint" style="text-align:center;">Список пуст. Отправьте музыкальный файл (.mp3) в чат.</p>';
-                } else {
-                    tracks.forEach(track => {
-                        const card = document.createElement('div');
-                        card.className = 'track-card';
-                        card.innerHTML = `
-                            <div class="track-title">🎵 ${track.title}</div>
-                            <button class="copy-btn" onclick="copyToClipboard('${track.url}')">Копировать прямую ссылку</button>
-                        `;
-                        tracksContainer.appendChild(card);
-                    });
-                }
-            } catch (e) {
-                tracksContainer.innerHTML = '<p class="hint">Ошибка при чтении списка треков.</p>';
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('hover');
+            }, false);
+        });
+
+        // Когда файл сбросили (Drag and Drop)
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) handleFile(files[0]);
+        });
+
+        // Когда файл выбрали через проводник
+        fileInput.addEventListener('change', (e) => {
+            if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+        });
+
+        // Функция отправки файла на бесплатный хостинг Catbox
+        async function handleFile(file) {
+            if (!file.type.startsWith('audio/')) {
+                tg.showAlert("Ошибка: Пожалуйста, выберите именно аудиофайл!");
+                return;
             }
-        } else {
-            tracksContainer.innerHTML = '<p class="hint" style="text-align:center;">Список пуст. Отправьте музыкальный файл (.mp3) в чат.</p>';
+
+            dropText.innerText = "⏳ Конвертация и загрузка...";
+            dropZone.style.pointerEvents = "none";
+
+            const formData = new FormData();
+            formData.append('reqtype', 'fileupload');
+            formData.append('fileToUpload', file);
+
+            try {
+                // Отправляем файл на CORS-прокси, чтобы обойти ограничения браузера
+                const response = await fetch('https://corsproxy.io?' + encodeURIComponent('https://catbox.moe'), {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("Ошибка сервера");
+
+                const fileUrl = await response.text(); // Catbox возвращает прямую ссылку текстом
+
+                if (fileUrl.startsWith('https://')) {
+                    addTrackCard(file.name, fileUrl);
+                    dropText.innerText = "✅ Успешно загружено!";
+                } else {
+                    throw new Error("Неверный ответ сервера");
+                }
+            } catch (error) {
+                tg.showAlert("Не удалось сконвертировать файл. Попробуйте другой трек.");
+                dropText.innerText = "Ошибка загрузки. Попробуйте еще раз";
+            } finally {
+                setTimeout(() => {
+                    dropText.innerText = "Нажмите для выбора или перетащите аудио сюда";
+                    dropZone.style.pointerEvents = "auto";
+                }, 3000);
+            }
         }
 
-        // Функция копирования в буфер обмена методами Telegram SDK
+        // Добавление карточки с треком на экран
+        function addTrackCard(name, url) {
+            const card = document.createElement('div');
+            card.className = 'track-card';
+            card.innerHTML = `
+                <div class="track-title">🎵 ${name}</div>
+                <button class="copy-btn" onclick="copyToClipboard('${url}')">Копировать URL ссылки</button>
+            `;
+            tracksContainer.insertBefore(card, tracksContainer.firstChild);
+        }
+
         function copyToClipboard(url) {
             navigator.clipboard.writeText(url).then(() => {
-                tg.showAlert("Ссылка успешно скопирована в буфер обмена! Нажмите 'Вставить' в любом месте.");
-            }).catch(() => {
-                tg.showAlert("Не удалось скопировать. Ссылка: " + url);
+                tg.showAlert("Прямая ссылка скопирована в буфер обмена!");
             });
         }
     </script>
