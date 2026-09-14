@@ -23,6 +23,7 @@
             border-radius: 16px; background-color: var(--tg-theme-secondary-bg-color, #ffffff);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             cursor: pointer; padding: 10px; box-sizing: border-box;
+            transition: background-color 0.2s;
         }
         #drop-zone.hover { background-color: rgba(0, 122, 255, 0.1); }
         #drop-zone p { font-size: 15px; font-weight: 600; margin: 8px 0 0 0; text-align: center; }
@@ -48,7 +49,7 @@
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
 
-        // Открытие проводника
+        // Открытие проводника при клике на зону
         dropZone.addEventListener('click', (e) => {
             if (e.target !== fileInput) {
                 fileInput.value = null; 
@@ -58,32 +59,38 @@
 
         // Глушим стандартные переходы браузера
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+            dropZone.addEventListener(eventName, (e) => { 
+                e.preventDefault(); 
+                e.stopPropagation(); 
+            }, false);
         });
 
         dropZone.addEventListener('dragover', () => dropZone.classList.add('hover'));
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('hover'));
 
-        // Перетаскивание файла
+        // Перетаскивание файла (Drag and Drop)
         dropZone.addEventListener('drop', (e) => {
             dropZone.classList.remove('hover');
             const dt = e.dataTransfer;
             if (dt.files && dt.files.length > 0) {
-                sendFileNameToBot(dt.files[0].name);
+                // ИСПРАВЛЕНО: берем имя первого файла из массива файлов
+                sendFileNameToBot(dt.files[0].name); 
             }
         });
 
-        // Выбор через проводник
+        // Выбор файла через стандартный проводник
         fileInput.addEventListener('change', () => {
             if (fileInput.files && fileInput.files.length > 0) {
-                sendFileNameToBot(fileInput.files[0].name);
+                // ИСПРАВЛЕНО: берем имя первого файла из массива файлов
+                sendFileNameToBot(fileInput.files[0].name); 
             }
         });
 
-        // Передаем информацию боту и закрываем Web App
+        // Функция отправки имени файла в чат бота
         function sendFileNameToBot(fileName) {
-            // Передаем имя файла строкой в бота
-            tg.sendData(fileName);
+            if (fileName) {
+                tg.sendData(fileName); // Отправляем строку боту
+            }
         }
     </script>
 </body>
