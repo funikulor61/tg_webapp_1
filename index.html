@@ -17,8 +17,7 @@
         h2 { text-align: center; margin-bottom: 5px; }
         .hint { color: var(--tg-theme-hint-color, #8e8e93); font-size: 14px; text-align: center; margin-bottom: 20px; }
         
-        /* Делаем зону элементом label, чтобы клик по ней автоматически и без багов открывал скрытый инпут */
-        .drop-zone-label {
+        #drop-zone {
             width: 90%; max-width: 400px; height: 180px;
             border: 2px dashed var(--tg-theme-button-color, #007aff);
             border-radius: 16px; background-color: var(--tg-theme-secondary-bg-color, #ffffff);
@@ -26,22 +25,21 @@
             cursor: pointer; padding: 10px; box-sizing: border-box;
             transition: background-color 0.2s;
         }
-        .drop-zone-label.hover { background-color: rgba(0, 122, 255, 0.1); }
-        .drop-zone-label p { font-size: 15px; font-weight: 600; margin: 8px 0 0 0; text-align: center; }
+        #drop-zone.hover { background-color: rgba(0, 122, 255, 0.1); }
+        #drop-zone p { font-size: 15px; font-weight: 600; margin: 8px 0 0 0; text-align: center; }
         #file-input { display: none; }
     </style>
 </head>
 <body>
 
     <h2>Конвертер музыки в URL</h2>
-    <p class="hint">Выберите файл или перетащите его в зону ниже</p>
+    <p class="hint">Выберите файл на устройстве или перетащите его в зону ниже</p>
 
-    <!-- Используем тег label для безопасного открытия проводника -->
-    <label for="file-input" id="drop-zone" class="drop-zone-label">
+    <div id="drop-zone">
         <span style="font-size: 40px;">🎵</span>
         <p id="drop-text">Нажмите для выбора или перетащите аудио сюда</p>
         <input type="file" id="file-input" accept="audio/*">
-    </label>
+    </div>
 
     <script>
         const tg = window.Telegram.WebApp;
@@ -50,44 +48,49 @@
 
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
+        const dropText = document.getElementById('drop-text');
 
-        // Полностью глушим стандартные браузерные переходы при перетаскивании файлов
+        // Клик по зоне безопасно открывает проводник
+        dropZone.addEventListener('click', (e) => {
+            if (e.target !== fileInput) {
+                fileInput.value = null; 
+                fileInput.click();
+            }
+        });
+
+        // Глушим стандартное поведение браузера для Drag & Drop
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             document.body.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
             dropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
         });
 
-        // Эффект наведения мыши при drag-and-drop
         dropZone.addEventListener('dragover', () => dropZone.classList.add('hover'));
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('hover'));
 
-        // Обработка бросания файла в зону
+        // Обработка сброса файла (перетаскивание)
         dropZone.addEventListener('drop', (e) => {
             dropZone.classList.remove('hover');
             const dt = e.dataTransfer;
             if (dt.files && dt.files.length > 0) {
-                // ЖЕСТКИЙ ХАК: берем строго первый элемент [0] и его имя .name
+                // ИСПРАВЛЕНО: Извлекаем имя через индекс [0]
                 sendFileNameToBot(dt.files[0].name); 
             }
         });
 
-        // Сброс значения перед открытием, чтобы событие change срабатывало даже при выборе одного файла подряд
-        fileInput.addEventListener('click', () => {
-            fileInput.value = null;
-        });
-
-        // Обработка выбора файла через стандартный проводник устройства
+        // Обработка выбора файла через проводник
         fileInput.addEventListener('change', () => {
             if (fileInput.files && fileInput.files.length > 0) {
-                // ЖЕСТКИЙ ХАК: берем строго первый элемент [0] и его имя .name
+                // ИСПРАВЛЕНО: Извлекаем имя через индекс [0]
                 sendFileNameToBot(fileInput.files[0].name); 
             }
         });
 
-        // Отправка данных обратно в чат боту
+        // Функция отправки строки в Telegram чат
         function sendFileNameToBot(fileName) {
             if (fileName && fileName.trim() !== "") {
-                tg.sendData(fileName); // Метод Telegram для отправки строки боту
+                dropText.innerText = "⏳ Отправка: " + fileName;
+                // Встроенный метод Telegram Web App для отправки данных обратно боту
+                tg.sendData(fileName); 
             }
         }
     </script>
