@@ -3,185 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio to URL Converter</title>
-    <!-- Подключаем официальный скрипт Telegram -->
+    <title>Converter v2</title>
     <script src="https://telegram.org"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: var(--tg-theme-bg-color, #f4f4f7);
             color: var(--tg-theme-text-color, #000000);
-            padding: 20px;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 85vh;
-            box-sizing: border-box;
+            padding: 20px; margin: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 85vh; box-sizing: border-box;
         }
         h2 { margin-bottom: 5px; text-align: center; }
         .hint { color: var(--tg-theme-hint-color, #8e8e93); font-size: 14px; text-align: center; margin-bottom: 25px; }
         
-        /* Стиль зоны загрузки */
         #upload-zone {
-            width: 100%;
-            max-width: 360px;
-            height: 180px;
+            width: 100%; max-width: 360px; height: 180px;
             border: 2px dashed var(--tg-theme-button-color, #007aff);
-            border-radius: 16px;
-            background-color: var(--tg-theme-secondary-bg-color, #ffffff);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            padding: 15px;
-            box-sizing: border-box;
-            transition: background-color 0.2s;
+            border-radius: 16px; background-color: var(--tg-theme-secondary-bg-color, #ffffff);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; padding: 15px; box-sizing: border-box; transition: background-color 0.2s;
         }
-        #upload-zone.hover {
-            background-color: rgba(0, 122, 255, 0.1);
-        }
-        #upload-zone p {
-            font-size: 15px;
-            font-weight: 600;
-            margin: 10px 0 0 0;
-            text-align: center;
-        }
+        #upload-zone.hover { background-color: rgba(0, 122, 255, 0.1); }
+        #status-text { font-size: 15px; font-weight: bold; margin: 10px 0 0 0; text-align: center; }
         #file-input { display: none; }
 
-        /* Стиль для кнопки копирования */
-        .copy-btn {
-            display: none; /* Скрыта по умолчанию */
-            width: 100%;
-            max-width: 360px;
+        .btn {
+            display: none; width: 100%; max-width: 360px;
             background-color: var(--tg-theme-button-color, #007aff);
             color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            border-radius: 10px;
-            padding: 14px;
-            font-weight: bold;
-            font-size: 15px;
-            margin-top: 20px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: none; border-radius: 10px; padding: 14px;
+            font-weight: bold; font-size: 15px; margin-top: 20px; cursor: pointer;
         }
-        .copy-btn:active { opacity: 0.8; }
+        .btn:active { opacity: 0.8; }
     </style>
 </head>
 <body>
 
     <h2>Конвертер музыки в URL</h2>
-    <p class="hint">Нажмите на зону, чтобы выбрать трек, или просто перетащите его мышкой</p>
+    <p class="hint">Нажмите на зону для выбора трека или перетащите его мышкой</p>
 
-    <!-- Клик по этой зоне программно открывает выбор файлов -->
     <div id="upload-zone">
         <span style="font-size: 45px;">🎵</span>
         <p id="status-text">Выбрать аудиофайл</p>
         <input type="file" id="file-input" accept="audio/*">
     </div>
 
-    <!-- Кнопка появится только после успешной загрузки файла -->
-    <button class="copy-btn" id="copy-button">📋 Скопировать прямую ссылку</button>
+    <button class="btn" id="copy-button">📋 Скопировать прямую ссылку</button>
 
     <script>
-        // Инициализация Telegram Web App SDK
         const tg = window.Telegram.WebApp;
         tg.ready();
-        tg.expand(); // Открываем шторку на весь экран
+        tg.expand();
 
-        let finalDownloadUrl = ""; // Сюда запишем готовую ссылку
-        const uploadZone = document.getElementById('upload-zone');
-        const fileInput = document.getElementById('file-input');
-        const statusText = document.getElementById('status-text');
-        const copyButton = document.getElementById('copy-button');
+        let finalUrl = "";
+        const zone = document.getElementById('upload-zone');
+        const input = document.getElementById('file-input');
+        const text = document.getElementById('status-text');
+        const btn = document.getElementById('copy-button');
 
-        // Логика открытия проводника при нажатии на зону
-        uploadZone.addEventListener('click', (e) => {
-            if (e.target !== fileInput) {
-                fileInput.value = null; // Сброс, чтобы повторный выбор того же файла работал
-                fileInput.click();
+        // Открытие проводника
+        zone.onclick = (e) => {
+            if (e.target !== input) {
+                input.value = null;
+                input.click();
             }
+        };
+
+        // Глушим стандартное поведение браузера для Drag & Drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
+            document.body.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); });
+            zone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); });
         });
 
-        // Глушим стандартное поведение браузера при перетаскивании файлов
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            document.body.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); });
-            uploadZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); });
-        });
-
-        uploadZone.addEventListener('dragover', () => uploadZone.classList.add('hover'));
-        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('hover'));
-
-        // Перехват файла при перетаскивании (Drag & Drop)
-        uploadZone.addEventListener('drop', (e) => {
-            uploadZone.classList.remove('hover');
-            const dt = e.dataTransfer;
-            if (dt.files && dt.files.length > 0) {
-                uploadFile(dt.files[0]); // Берём самый первый перетащенный файл
+        zone.ondragover = () => zone.classList.add('hover');
+        zone.ondragleave = () => zone.classList.remove('hover');
+        
+        zone.ondrop = (e) => {
+            zone.classList.remove('hover');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                upload(e.dataTransfer.files[0]); // Берём строго ПЕРВЫЙ файл объекта File
             }
-        });
+        };
 
-        // Перехват файла при выборе через стандартный проводник устройства
-        fileInput.addEventListener('change', () => {
-            if (fileInput.files && fileInput.files.length > 0) {
-                uploadFile(fileInput.files[0]); // Берём выбранный файл
+        input.onchange = () => {
+            if (input.files && input.files.length > 0) {
+                upload(input.files[0]); // Берём строго ПЕРВЫЙ файл объекта File
             }
-        });
+        };
 
-        // Функция отправки файла на сервер хостинга
-        async function uploadFile(file) {
-            statusText.innerText = "⏳ Загрузка и конвертация...";
-            uploadZone.style.pointerEvents = "none"; // Блокируем зону на время загрузки
-            copyButton.style.display = "none"; // Прячем кнопку, если загружаем новый файл
+        async function upload(fileObject) {
+            if (!fileObject) return;
+
+            text.innerText = "⏳ Загрузка и конвертация...";
+            zone.style.pointerEvents = "none";
+            btn.style.display = "none";
 
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', fileObject); // Передаем чистый файл
 
             try {
-                // Отправляем асинхронный POST-запрос на tmpfiles.org
-                const response = await fetch('https://tmpfiles.org', {
+                // Прямой POST-запрос на file.io
+                const response = await fetch('https://file.io', {
                     method: 'POST',
                     body: formData
                 });
 
                 const result = await response.json();
 
-                if (result.status === "success" && result.data && result.data.url) {
-                    // ХАК: tmpfiles.org выдает ссылку на страницу просмотра. 
-                    // Мы заменяем в ней часть адреса, чтобы получилась ПРЯМАЯ ссылка на скачивание музыкального файла.
-                    finalDownloadUrl = result.data.url.replace('https://tmpfiles.org', 'https://tmpfiles.orgdl/');
-                    
-                    statusText.innerText = "✅ Ссылка успешно создана!";
-                    copyButton.style.display = "block"; // Показываем кнопку копирования
-                    
-                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success"); // Вибрация на смартфонах
+                if (result.success && result.link) {
+                    finalUrl = result.link; // Ссылка на скачивание файла
+                    text.innerText = "✅ Ссылка успешно создана!";
+                    btn.style.display = "block"; // Показываем кнопку "Скопировать"
+                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
                 } else {
                     throw new Error();
                 }
-            } catch (error) {
-                console.error(error);
-                statusText.innerText = "❌ Ошибка загрузки";
-                tg.showAlert("Не удалось сконвертировать файл. Попробуйте другой аудиофайл.");
+            } catch (err) {
+                console.error(err);
+                text.innerText = "❌ Ошибка загрузки";
+                tg.showAlert("Не удалось загрузить файл. Попробуйте еще раз или выберите другой трек.");
             } finally {
-                // Разрешаем кликать по зоне снова
-                uploadZone.style.pointerEvents = "auto";
+                zone.style.style.pointerEvents = "auto";
             }
         }
 
-        // Логика кнопки «Скопировать»
-        copyButton.addEventListener('click', () => {
-            if (!finalDownloadUrl) return;
-            
-            // Копируем ссылку в буфер обмена системы
-            navigator.clipboard.writeText(finalDownloadUrl).then(() => {
+        btn.onclick = () => {
+            if (!finalUrl) return;
+            navigator.clipboard.writeText(finalUrl).then(() => {
                 tg.showAlert("Прямая URL ссылка скопирована в буфер обмена!");
             }).catch(() => {
-                // Резервный вариант, если браузер запретил копирование
-                tg.showAlert("Ваша ссылка: " + finalDownloadUrl);
+                tg.showAlert("Ваша ссылка: " + finalUrl);
             });
-        });
+        };
     </script>
 </body>
 </html>
